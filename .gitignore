@@ -27,5 +27,5 @@ env/
 Thumbs.db
 
 # Project specific
-figures/*.png
+figures/*
 !figures/.gitkeep

@@ -188,7 +188,7 @@ No we get to the problem of defining a differentiable utility function.
 The first point where differentiability breaks is when we assign binary fates to patterns."""
 
 @jit
-def apply_soft_threshold(states: jnp.ndarray, threshold: float = 0.5, temperature: float=20.0) -> jnp.ndarray:
+def apply_soft_threshold(states: jnp.ndarray, threshold: float = 0.5, temperature: float=10.0) -> jnp.ndarray:
     """
     Applies a differentiable sigmoid function to the states to obtain soft cell fates.
     Args:
