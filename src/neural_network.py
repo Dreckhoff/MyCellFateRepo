@@ -134,7 +134,7 @@ def unflatten_params(flat: jnp.ndarray, template: Dict) -> Dict:
 
 # Now define the function that evaluate the fitness for the neural network
 # First import necessary functions
-from dynamics import run_multiple_replicates, apply_threshold
+from dynamics import run_multiple_replicates, run_multiple_replicates_fixed_boundary ,apply_threshold
 from utility_function import compute_hard_utility
 
 # Define the TrainingSetupDictionary (here a dummy)
@@ -197,6 +197,55 @@ def compute_fitness(params: Dict, model: RegulatoryNetwork,
     
     return utility, s_pat, s_rep
 
+@partial(jit, static_argnames=['model', 'N_CELLS', 'N_REPLICATES', 'N_STEPS', 'DT', 'NOISE_STRENGTH'])
+def compute_fitness_fixed_boundary(params: Dict, model: RegulatoryNetwork, 
+                    N_CELLS, N_REPLICATES, N_STEPS, DT, NOISE_STRENGTH, 
+                    eval_key: jax.random.PRNGKey) -> tuple[float, float, float]:
+    """
+    Evaluate utility (fitness) for given network parameters.
+    
+    Higher utility = better fitness.
+    Uses hard utility, non differentiable, used for ES (Evolution & Selection)
+    Args:
+        params: Network parameters as a dict.
+        model: RegulatoryNetwork instance defining architecture. (static)
+        N_CELLS: Number of cells in the simulation. (static)
+        N_REPLICATES: Number of replicates to run. (static)
+        N_STEPS: Number of time steps in each simulation. (static)
+        DT: Time step size for simulations. (static)
+        NOISE_STRENGTH: Noise strength in simulations. (static)
+        eval_key: JAX PRNGKey for stochastic simulations.
+    Returns:
+        utility: Computed utility (fitness) score.
+        s_pat: Pattern diversity score.
+        s_rep: Replicate consistency score.
+    """
+    # Get regulatory function from params
+    func = get_regulatory_function(model, params)
+    
+    # Run simulations
+    final_states = run_multiple_replicates_fixed_boundary(
+        f=func,
+        n_cells=N_CELLS,
+        n_replicates=N_REPLICATES,
+        n_steps=N_STEPS,
+        dt=DT,
+        noise_strength=NOISE_STRENGTH,
+        key=eval_key
+    )
+
+    
+    # Apply threshold to get patterns (using STE for technical consistency)
+    patterns = apply_threshold(final_states)
+    
+    # Compute soft utility (allows gradients to flow, even though ES doesn't use them)
+    # utility, s_pat, s_rep = compute_soft_utility(patterns, bandwidth=SOFT_BANDWIDTH)
+    utility, s_pat, s_rep = compute_hard_utility(patterns)
+    
+    return utility, s_pat, s_rep
+
+
+
 
 @partial(jit, static_argnames=['model', 'N_CELLS', 'N_REPLICATES', 'N_STEPS', 'DT', 'NOISE_STRENGTH'])
 def evaluate_population(population: jnp.ndarray, model: RegulatoryNetwork, 
@@ -234,6 +283,50 @@ def evaluate_population(population: jnp.ndarray, model: RegulatoryNetwork,
         key_i = keys[i]
         params = unflatten_params(individual, template)
         fitness, _, _ = compute_fitness(params, model, 
+                                        N_CELLS, N_REPLICATES, N_STEPS, DT, NOISE_STRENGTH, 
+                                        key_i)
+        return fit_array.at[i].set(fitness)
+    
+    # JAX-friendly loop over population
+    fitnesses = jax.lax.fori_loop(0, pop_size, body_fn, fitnesses)
+    return fitnesses
+
+@partial(jit, static_argnames=['model', 'N_CELLS', 'N_REPLICATES', 'N_STEPS', 'DT', 'NOISE_STRENGTH'])
+def evaluate_population_fixed_boundary(population: jnp.ndarray, model: RegulatoryNetwork, 
+                        N_CELLS, N_REPLICATES, N_STEPS, DT, NOISE_STRENGTH, 
+                       template: Dict, eval_key: jax.random.PRNGKey) -> jnp.ndarray:
+    """
+    Evaluate fitness for entire population (generation-level operation).
+    
+    For each individual in the population, unflatten parameters and compute
+    fitness by running simulations and evaluating the utility function.
+    
+    Args:
+        population: Array of shape (pop_size, n_params) containing flattened
+            parameters for each individual in the generation.
+        model: RegulatoryNetwork instance defining the architecture. (static)
+        N_CELLS: Number of cells in the simulation. (static)
+        N_REPLICATES: Number of replicates to run. (static)
+        N_STEPS: Number of time steps in each simulation. (static)
+        DT: Time step size for simulations. (static)
+        NOISE_STRENGTH: Noise strength in simulations. (static)
+        template: Parameter dict template for unflattening.
+        eval_key: JAX PRNGKey for stochastic fitness evaluations.
+    
+    Returns:
+        Array of shape (pop_size,) containing fitness (utility) scores for
+        each individual in the population.
+    """
+    pop_size, n_params = population.shape
+    fitnesses = jnp.zeros((pop_size,))
+    keys = random.split(eval_key, pop_size)
+    
+    def body_fn(i, fit_array):
+        """Loop body: evaluate fitness for individual i."""
+        individual = population[i]
+        key_i = keys[i]
+        params = unflatten_params(individual, template)
+        fitness, _, _ = compute_fitness_fixed_boundary(params, model, 
                                         N_CELLS, N_REPLICATES, N_STEPS, DT, NOISE_STRENGTH, 
                                         key_i)
         return fit_array.at[i].set(fitness)
