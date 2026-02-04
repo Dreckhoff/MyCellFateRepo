@@ -51,7 +51,6 @@ figures/                - Generated plots and visualizations
 - ✅ Neural network architecture (Flax)
 - ✅ Evolutionary training (successfully discovers lateral inhibition)
 - ✅ Fixed boundary variant
-- ⚠️ Backpropagation training (investigated but unsuccessful - see FixTheBackprop.md)
 
 ## Key Results
 
