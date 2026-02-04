@@ -6,9 +6,8 @@ PhD warmup project: Train neural networks to model Gene Regulatory Networks (GRN
 
 ```bash
 # Setup environment
-python -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
-pip install jax jaxlib flax numpy matplotlib seaborn jupyter
+conda env create -f environment.yml
+conda activate cellfate
 
 # Run notebooks in order
 jupyter notebook notebooks/
