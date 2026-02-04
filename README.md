@@ -22,8 +22,7 @@ Cells with state `s ∈ [0,1]` evolve via `ds/dt = f(s̄) + noise`, where `s̄` 
 
 ## Documentation
 
-- **[NOTEBOOK_GUIDE.md](NOTEBOOK_GUIDE.md)** - Detailed guide to all notebooks with purpose and key features
-- **[FixTheBackprop.md](FixTheBackprop.md)** - Analysis of gradient-based training challenges
+- NOTEBOOK_GUIDE - Detailed guide to all notebooks with purpose and key features
 - **agents.md** - AI assistant guidelines and project context
 
 ## Project Structure
